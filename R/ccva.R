@@ -19,6 +19,8 @@
 #' \item{var_X, var_Y}{Selected variables for each dataset.}
 #' \item{load_X, load_Y}{Longitudinal/functional loading for each dataset.}
 #' \item{Z_X, Z_Y}{Subject-specific canonical variables.}
+#' 
+#' @example example.R
 #' @export
 CCVA <- function(grid_num = 201, dat_X, dat_Y, mean_zero = F, print_tuning = T, length_tun = 30, 
                  max_var, Sparse = T, comp, FVE = 0.95){
@@ -780,4 +782,177 @@ cv_slcca <- function(lambda, Initial_cca, n, group_x, group_y, max_var){
               fit_cca = fit_cca,
               lambda = lambda
   ))
+}
+
+#' Plot CCVA Loading Surfaces for X and Y Features
+#'
+#' Creates a heatmap visualization of the top canonical loading surfaces for X and Y
+#' from a CCVA analysis, highlighting the most important features over specified time points.
+#'
+#' @param fit A list returned by \code{CCVA()}, containing loading surfaces and basis information.
+#' @param dat_X A list with component \code{feature_label}: character vector of X feature names.
+#' @param dat_Y A list with component \code{feature_label}: character vector of Y feature names.
+#' @param hight_feature Integer; maximum number of top features to display (default: 5).
+#' @param k Integer; the component index to visualize (e.g., 1 for the first canonical component).
+#' @param name_X Character; label for the X data facet (e.g., "X").
+#' @param name_Y Character; label for the Y data facet (e.g., "Y").
+#' @param time_illu Numeric vector; specific grid time points to illustrate.
+#' @param time_label Character vector; axis labels corresponding to \code{time_illu}.
+#' @param title_name Character; plot title.
+#'
+#' @return A list with:
+#'   \describe{
+#'     \item{plot}{A \code{ggplot} heatmap object.}
+#'     \item{feature_X}{Character vector of selected X feature names.}
+#'     \item{feature_Y}{Character vector of selected Y feature names.}}
+#'
+#' @import ggplot2
+#' @export
+plot_CCVA <- function(fit, dat_X, dat_Y, hight_feature = 5, k, name_X, name_Y, time_illu, time_label, title_name){
+  
+  ## Longitudinal canonical vector
+  Canonical_X <- fit$load_X[[k]]
+  Canonical_X <- Canonical_X * sign(sum(Canonical_X))
+  Canonical_Y <- fit$load_Y[[k]]
+  Canonical_Y <- Canonical_Y * sign(sum(Canonical_Y))
+  
+  ### X
+  order_X <- order(rowSums(Canonical_X ^ 2), decreasing = T)
+  nonzeo_X <- sum(sort(rowSums(Canonical_X ^ 2), decreasing = T) > 0)
+  feature_X <- dat_X$feature_label[order_X[1:nonzeo_X]]
+  
+  mark <- sapply(1:length(time_illu), function(h) which.min(abs(fit$Optimal_basis$X$workGrid - time_illu[h]))) 
+  Lcv_X <- matrix(sapply(1:min(hight_feature, nonzeo_X), function(l){
+    Canonical_X[order_X[l],mark]
+  }), ncol = min(hight_feature, nonzeo_X))
+  
+  imp_fea <- sapply(1:dim(Lcv_X)[2], function(k) dat_X$feature_label[order_X[k]])
+  imp_fea <- factor(c(matrix(imp_fea, nrow = nrow(Lcv_X), ncol = length(imp_fea), byrow = T)),
+                    levels = rev(imp_fea))
+  dat_plot_X <- data.frame(time = rep(time_illu, ncol(Lcv_X)),
+                           val  = c(Lcv_X), 
+                           label = imp_fea,
+                           data_type = rep(name_X, length(imp_fea))
+  )
+  
+  ### Y
+  order_Y <- order(rowSums(Canonical_Y ^ 2), decreasing = T)
+  nonzeo_Y <- sum(sort(rowSums(Canonical_Y ^ 2), decreasing = T) > 0)
+  feature_Y <- dat_Y$feature_label[order_Y[1:nonzeo_Y]]
+  
+  Lcv_Y <- matrix(sapply(1:min(hight_feature, nonzeo_Y), function(l){
+    Canonical_Y[order_Y[l],mark]
+  }), ncol = min(hight_feature, nonzeo_Y))
+  
+  imp_fea <- sapply(1:dim(Lcv_Y)[2], function(k) dat_Y$feature_label[order_Y[k]])
+  imp_fea <- factor(c(matrix(imp_fea, nrow = dim(Lcv_Y)[1], ncol = length(imp_fea), byrow = T)),
+                    levels = rev(imp_fea))
+  dat_plot_Y <- data.frame(time = rep(time_illu, ncol(Lcv_Y)),
+                           val  = c(Lcv_Y), 
+                           label = imp_fea,
+                           data_type = rep(name_Y, length(imp_fea))
+  )
+  
+  dat_plot <- rbind(dat_plot_X, dat_plot_Y)
+  
+  pl <- ggplot(dat_plot) + 
+    geom_tile(aes(x = time, y = label, fill = val)) +
+    scale_fill_gradient2(low = "#2b8cbe", mid = "white", high = "orange", midpoint = 0) +
+    facet_wrap(~data_type, nrow = 1, scales = "free_y") +
+    theme_bw(base_family = "Times") +
+    scale_x_continuous(breaks = time_illu, labels = time_label) +
+    xlab("") + ylab("") + 
+    theme(panel.grid.minor = element_blank(),
+          panel.grid.major = element_blank(),
+          legend.position = "right",
+          text = element_text(size = 12),
+          panel.border = element_blank(),
+          plot.title = element_text(hjust = 0.5),
+          axis.text.x = element_text(angle = 0)) +
+    labs(title = title_name, fill = "")
+  
+  return(list(plot = pl,
+              feature_X = feature_X,
+              feature_Y = feature_Y))
+}
+
+#' Wrap Raw Data into CCVA-Compatible Format
+#'
+#' Converts a wide-format data matrix and accompanying sample metadata into the
+#' nested list structure required by CCVA, scaling values and normalizing time.
+#'
+#' @param dat A data frame with column names as feature labels.
+#' @param dat_count A data frame containing at least columns \code{SubjectID} and \code{timepoint},
+#'   mapping each row of \code{dat} to a specific subject and time index.
+#' @param time_label A numeric or character vector used to map \code{timepoint} indices to actual times.
+#'
+#' @return A list with components:
+#'   \describe{
+#'     \item{dat}{Nested list of length \code{p}, each a list of length \code{n} with elements \code{time} and \code{val}.}
+#'     \item{n}{Number of subjects.}
+#'     \item{p}{Number of features.}
+#'     \item{sub_label}{Vector of unique subject identifiers.}
+#'     \item{feature_label}{Vector of feature names (column names of \code{dat}).}
+#'     \item{time_grid}{Sorted, scaled unique time points across all features.}
+#'     \item{time_min}{Minimum raw time before scaling.}
+#'     \item{time_max}{Maximum raw time before scaling.}}
+#'
+#' @export
+wrap_dat <- function(dat, dat_count, time_label) {
+  feature_label <- colnames(dat)
+  sub_label     <- unique(dat_count$SubjectID)
+  
+  n <- length(sub_label)
+  p <- length(feature_label)
+  
+  # Build nested list of time/value pairs
+  fda_object <- lapply(seq_len(p), function(i) {
+    lapply(seq_len(n), function(j) {
+      idx <- which(dat_count$SubjectID == sub_label[j])
+      times_raw <- dat_count$timepoint[idx]
+      vals_raw  <- dat[idx, feature_label[i]]
+      
+      # Aggregate by timepoint
+      uniq_t <- sort(unique(times_raw))
+      vals   <- sapply(uniq_t, function(t) mean(vals_raw[times_raw == t]))
+      times  <- time_label[uniq_t]
+      
+      data.frame(time = times, val = vals)[is.finite(vals), , drop = FALSE]
+    })
+  })
+  
+  # Scale and normalize time to [0,1]
+  all_times <- sort(unique(unlist(lapply(fda_object, function(feat) {
+    unlist(lapply(feat, `[[`, "time"))
+  })))
+  )
+  min_t <- min(all_times)
+  max_t <- max(all_times)
+  time_grid <- (all_times - min_t) / (max_t - min_t)
+  
+  # Center & scale values per feature
+  for (i in seq_len(p)) {
+    vals_all <- unlist(lapply(fda_object[[i]], `[[`, "val"))
+    mu   <- mean(vals_all)
+    sigma <- sqrt(mean(vals_all^2))
+    for (j in seq_len(n)) {
+      if (nrow(fda_object[[i]][[j]]) > 0) {
+        fda_object[[i]][[j]]$time <-
+          (fda_object[[i]][[j]]$time - min_t) / (max_t - min_t)
+        fda_object[[i]][[j]]$val  <-
+          (fda_object[[i]][[j]]$val  - mu) / sigma
+      }
+    }
+  }
+  
+  list(
+    dat           = fda_object,
+    n             = n,
+    p             = p,
+    sub_label     = sub_label,
+    feature_label = feature_label,
+    time_grid     = time_grid,
+    time_min      = min_t,
+    time_max      = max_t
+  )
 }
