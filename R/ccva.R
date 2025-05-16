@@ -806,7 +806,7 @@ cv_slcca <- function(lambda, Initial_cca, n, group_x, group_y, max_var){
 #'     \item{feature_X}{Character vector of selected X feature names.}
 #'     \item{feature_Y}{Character vector of selected Y feature names.}}
 #'
-#' @import ggplot2
+#' @import ggplot2 ggrepel
 #' @export
 plot_CCVA <- function(fit, dat_X, dat_Y, hight_feature = 5, k, name_X, name_Y, time_illu, time_label, title_name){
   
@@ -856,7 +856,7 @@ plot_CCVA <- function(fit, dat_X, dat_Y, hight_feature = 5, k, name_X, name_Y, t
   dat_plot <- rbind(dat_plot_X, dat_plot_Y)
   
   pl <- ggplot(dat_plot) + 
-    geom_tile(aes(x = time, y = label, fill = val)) +
+    geom_tile(aes(x = dat_plot$time, y = dat_plot$label, fill = dat_plot$val)) +
     scale_fill_gradient2(low = "#2b8cbe", mid = "white", high = "orange", midpoint = 0) +
     facet_wrap(~data_type, nrow = 1, scales = "free_y") +
     theme_bw(base_family = "Times") +

@@ -22,10 +22,6 @@ library(ggrepel)
 data(dat_X)
 data(dat_Y)
 
-# Inspect structure
-str(dat_X)
-str(dat_Y)
-
 # 2. CCVA estimation ------------------------------------------------------
 
 # Parameters
@@ -48,6 +44,7 @@ Result <- CCVA(
 # 3. Correlation of canonical variables ------------------------------------
 X_cca <- Result$Z_X[[1]]
 Y_cca <- Result$Z_Y[[1]]
+n <- dat_X$n
 
 # Prepare data frame for plotting
 cor <- abs(crossprod(X_cca, Y_cca) / sqrt(crossprod(X_cca, X_cca) * crossprod(Y_cca, Y_cca)))
@@ -59,8 +56,15 @@ dat_plot <- data.frame(
 
 ggplot(dat_plot) + 
   geom_point(aes(x = X, y = Y)) +  
-  ggrepel::geom_text_repel(aes(x = text_x, y = text_y, label = paste0("Correlation ", round(cor, 3))), size = 4, max.overlaps = 100) +
-  # facet_wrap(~ var1 + var2, scales = "free") +
+    geom_text_repel(
+      aes(
+        x     = text_x,
+        y     = text_y,
+        label = paste0("Correlation ", round(cor, 3))
+      ),
+      size         = 4,
+      max.overlaps = 100
+    ) +
   theme_bw(base_family = "Times") +
   xlab("Metabolite") + ylab("Lipid") + 
   theme(legend.position = "none",
