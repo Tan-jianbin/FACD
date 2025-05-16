@@ -8,7 +8,7 @@
 #' @param mean_zero Logical. Center data to zero mean before analysis (default: FALSE).
 #' @param print_tuning Logical. Print tuning information during sparse fitting (default: TRUE).
 #' @param length_tun Integer. Number of candidate tuning parameters for sparse CCA (default: 30).
-#' @param max_var Numeric vector of length 2. Maximum variance parameters for (X, Y) groups (default: c(min(n,p_X), min(n,p_Y))).
+#' @param max_var Numeric vector of length 2. Maximum variance parameters for (X, Y) groups.
 #' @param Sparse Logical. If TRUE, perform sparse CCA with variable selection (default: TRUE).
 #' @param comp Integer. Number of canonical components to compute.
 #' @param FVE Numeric. Fraction of variance explained threshold for basis estimation (default: 0.95).
@@ -158,9 +158,7 @@ CCVA <- function(grid_num = 201, dat_X, dat_Y, mean_zero = F, print_tuning = T, 
               load_X = load_X,
               load_Y = load_Y,
               Z_X = Z_X,
-              Z_Y = Z_Y,
-              eta = fit_cca$cov[1:comp],
-              tol_cov = tol_cov
+              Z_Y = Z_Y
   ))
 }
 

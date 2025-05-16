@@ -30,7 +30,7 @@ CCVA(
 
 \item{length_tun}{Integer. Number of candidate tuning parameters for sparse CCA (default: 30).}
 
-\item{max_var}{Numeric vector of length 2. Maximum variance parameters for (X, Y) groups (default: c(min(n,p_X), min(n,p_Y))).}
+\item{max_var}{Numeric vector of length 2. Maximum variance parameters for (X, Y) groups.}
 
 \item{Sparse}{Logical. If TRUE, perform sparse CCA with variable selection (default: TRUE).}
 
