@@ -10,6 +10,7 @@ You can install the development version directly from GitHub:
 install.packages("remotes")    # if not already installed
 remotes::install_github("Tan-jianbin/CCVA")
 
+
 ## Example
 
 The full worked example is stored in **example.R** and is included here automatically:
