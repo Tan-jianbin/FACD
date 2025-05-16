@@ -2,6 +2,9 @@
 
 **CCVA** is an R package implementing the methodology from the paper  **“Associating High-Dimensional Longitudinal Datasets through Canonical Cross-Covariance Analysis”**  by Jianbin Tan and Pixu Shi.
 
+## Description: 
+ CCVA encodes associations between high-dimensional longitudinal datasets by providing a data-adaptive basis to capture longitudinal signals and incorporating variable selection to facilitate the discovery of key associations.
+
 ## Installation
 
 You can install the development version directly from GitHub:
