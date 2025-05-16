@@ -8,11 +8,11 @@ CCVA(
   grid_num = 201,
   dat_X,
   dat_Y,
-  mean_zero = FALSE,
-  print_tuning = TRUE,
+  mean_zero = F,
+  print_tuning = T,
   length_tun = 30,
   max_var,
-  Sparse = TRUE,
+  Sparse = T,
   comp,
   FVE = 0.95
 )

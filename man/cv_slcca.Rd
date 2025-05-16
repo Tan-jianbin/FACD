@@ -4,17 +4,7 @@
 \alias{cv_slcca}
 \title{Cross-Validation Wrapper for Sparse CCA}
 \usage{
-cv_slcca(
-  lambda,
-  Initial_cca,
-  n,
-  zx,
-  zy,
-  group_x,
-  group_y,
-  max_var,
-  cv_num = min(5, n)
-)
+cv_slcca(lambda, Initial_cca, n, group_x, group_y, max_var)
 }
 \arguments{
 \item{lambda}{Numeric vector of length 2; penalties for X and Y groups.}
@@ -23,17 +13,11 @@ cv_slcca(
 
 \item{n}{Integer; number of subjects.}
 
-\item{zx}{Numeric matrix; X-projected training data (subjects × features).}
-
-\item{zy}{Numeric matrix; Y-projected training data (subjects × features).}
-
 \item{group_x}{Integer vector; group labels for X coefficients.}
 
 \item{group_y}{Integer vector; group labels for Y coefficients.}
 
 \item{max_var}{Numeric(2); maximum nonzero groups allowed for (X, Y).}
-
-\item{cv_num}{Integer; number of folds for cross-validation (default: min(5, n)).}
 }
 \value{
 A list with:

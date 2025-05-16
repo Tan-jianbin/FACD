@@ -4,14 +4,7 @@
 \alias{Optimal_basis_est}
 \title{Estimate Data-Adaptive Basis Functions}
 \usage{
-Optimal_basis_est(
-  dat_X,
-  dat_Y,
-  grid_num,
-  max_comp_num = 5,
-  mean_zero = FALSE,
-  FVE
-)
+Optimal_basis_est(dat_X, dat_Y, grid_num, max_comp_num = 5, mean_zero = F, FVE)
 }
 \arguments{
 \item{dat_X}{List with elements:
