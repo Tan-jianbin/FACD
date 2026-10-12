@@ -9,7 +9,7 @@
 
 ```r
 install.packages("remotes")
-remotes::install_url("https://github.com/Tan-jianbin/FACD/archive/refs/tags/v0.2.0.tar.gz")
+remotes::install_github("Tan-jianbin/FACD")
 library(FACD)
 ```
 
