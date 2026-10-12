@@ -10,7 +10,6 @@
 ```r
 install.packages("remotes")
 remotes::install_github("Tan-jianbin/FACD")
-library(FACD)
 ```
 
 ## Example
