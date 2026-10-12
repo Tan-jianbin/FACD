@@ -11,7 +11,7 @@ You can install the development version directly from GitHub:
 
 ```r
 install.packages("remotes")    # if not already installed
-remotes::install_github("Tan-jianbin/FACD")
+remotes::install_github("Tan-jianbin/FACD", auth_token = NULL)
 ```
 
 
