@@ -7,11 +7,15 @@
 
 ## Installation
 
-You can install the development version directly from GitHub:
+Install the development version from the public GitHub source archive. This avoids
+automatically using a saved GitHub PAT, which can cause HTTP 401 errors if invalid:
 
 ```r
 install.packages("remotes")    # if not already installed
-remotes::install_github("Tan-jianbin/FACD", auth_token = NULL)
+remotes::install_url(
+  "https://github.com/Tan-jianbin/FACD/archive/refs/heads/main.tar.gz",
+  upgrade = "never"
+)
 ```
 
 
