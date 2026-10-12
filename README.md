@@ -7,21 +7,11 @@
 
 ## Installation
 
-Install the development version from the public GitHub source archive. This avoids
-automatically using a saved GitHub PAT, which can cause HTTP 401 errors if invalid:
-
 ```r
-install.packages("remotes")    # if not already installed
-remotes::install_url(
-  "https://github.com/Tan-jianbin/FACD/archive/refs/heads/main.tar.gz",
-  upgrade = "never"
-)
+install.packages("remotes")
+remotes::install_url("https://github.com/Tan-jianbin/FACD/archive/refs/tags/v0.2.0.tar.gz")
+library(FACD)
 ```
-
-
-The package is now named `FACD` (formerly `CCVA`). After installing the updated
-version, use `library(FACD)`, `FACD()`, and `plot_FACD()`. See [NEWS.md](NEWS.md)
-for the changes in version 0.2.0.
 
 ## Example
 
