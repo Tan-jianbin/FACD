@@ -4,8 +4,12 @@
 #'
 #' @param grid_num Integer. Number of grid points for time discretization (default: 201).
 #' @param dat_X List. Contains components `n`, `p`, and `dat` for dataset X.
-#' @param dat_Y List. Contains components `n`, `p`, and `dat` for dataset Y.
-#' @param mean_zero Logical. Center data to zero mean before analysis (default: FALSE).
+#'   All observed times must be scaled to [0, 1]; see Details for preprocessing.
+#' @param dat_Y List. Contains components `n`, `p`, and `dat` for dataset Y,
+#'   with the same preprocessing requirements as \code{dat_X}.
+#' @param mean_zero Logical. If TRUE, assumes that the mean curves are zero;
+#'   otherwise estimates and subtracts them (default: FALSE). This does not
+#'   standardize feature variances.
 #' @param print_tuning Logical. Print tuning information during sparse fitting (default: TRUE).
 #' @param length_tun Integer. Number of candidate tuning parameters for sparse CCA (default: 30).
 #' @param max_var Numeric vector of length 2. Maximum variance parameters for (X, Y) groups.
@@ -23,6 +27,28 @@
 #' \item{eta}{Estimated component cross-covariances.}
 #' \item{tol_cov}{Frobenius norm of the initial cross-covariance matrix.}
 #' 
+#' @details
+#' Before calling \code{FACD()}, scale every observed \code{$time} and the
+#' corresponding \code{time_grid} to [0, 1], for example using
+#' \code{(time - time_min) / (time_max - time_min)} with \code{time_max > time_min}.
+#' Use one time mapping across all subjects and features within each dataset,
+#' rather than rescaling each subject separately. When X and Y share a physical
+#' time axis, use the same units and reference interval to preserve alignment.
+#'
+#' Feature-wise standardization is recommended, especially when features have
+#' different units or scales. For each feature, pool observations across subjects
+#' and time points, then subtract its mean and divide by its standard deviation
+#' (z-score scaling). Remove features with no finite observations or zero variance
+#' before standardizing. Do not standardize each subject's trajectory separately.
+#' \code{FACD()} does not automatically rescale time or standardize feature variances.
+#'
+#' \code{\link{wrap_dat}} automatically rescales time to [0, 1] and centers each
+#' feature, dividing by the root mean square (RMS) of its uncentered values
+#' rather than its standard deviation. For z-score preprocessing, standardize the raw feature
+#' columns before wrapping. Each call to \code{wrap_dat()} uses its own observed
+#' time range; check that these ranges match when X and Y share a time axis.
+#' The bundled datasets are already prepared for the example.
+#'
 #' @example example.R
 #' @export
 FACD <- function(grid_num = 201, dat_X, dat_Y, mean_zero = F, print_tuning = T, length_tun = 30, 
@@ -1001,7 +1027,8 @@ plot_FACD <- function(fit, dat_X, dat_Y, hight_feature = 5, k, name_X, name_Y, t
 #' @param dat A data frame with column names as feature labels.
 #' @param dat_count A data frame containing at least columns \code{SubjectID} and \code{timepoint},
 #'   mapping each row of \code{dat} to a specific subject and time index.
-#' @param time_label A numeric or character vector used to map \code{timepoint} indices to actual times.
+#' @param time_label A finite numeric vector used to map \code{timepoint} indices
+#'   to actual times. Observed times must contain at least two distinct values.
 #'
 #' @return A list with components:
 #'   \describe{
@@ -1013,6 +1040,19 @@ plot_FACD <- function(fit, dat_X, dat_Y, hight_feature = 5, k, name_X, name_Y, t
 #'     \item{time_grid}{Sorted, scaled unique time points across all features.}
 #'     \item{time_min}{Minimum raw time before scaling.}
 #'     \item{time_max}{Maximum raw time before scaling.}}
+#'
+#' @details
+#' This function rescales observed times to [0, 1] using the minimum and maximum
+#' across all subjects and features in this dataset. The original bounds are
+#' returned as \code{time_min} and \code{time_max}. For datasets sharing a physical
+#' time axis, check that separate calls use the same units and time bounds.
+#'
+#' After averaging duplicate subject/timepoint measurements, each feature is
+#' centered by its pooled mean and divided by \code{sqrt(mean(values^2))}, the
+#' RMS of its uncentered values. This is not unit-variance z-score scaling.
+#' To apply the recommended z-score preprocessing, standardize the raw feature
+#' columns across all subjects and time points before calling \code{wrap_dat()}.
+#' Remove features with no finite observations or zero variance beforehand.
 #'
 #' @export
 wrap_dat <- function(dat, dat_count, time_label) {

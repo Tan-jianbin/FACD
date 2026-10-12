@@ -21,11 +21,15 @@ FACD(
 \arguments{
 \item{grid_num}{Integer. Number of grid points for time discretization (default: 201).}
 
-\item{dat_X}{List. Contains components `n`, `p`, and `dat` for dataset X.}
+\item{dat_X}{List. Contains components `n`, `p`, and `dat` for dataset X.
+All observed times must be scaled to [0, 1]; see Details for preprocessing.}
 
-\item{dat_Y}{List. Contains components `n`, `p`, and `dat` for dataset Y.}
+\item{dat_Y}{List. Contains components `n`, `p`, and `dat` for dataset Y,
+with the same preprocessing requirements as \code{dat_X}.}
 
-\item{mean_zero}{Logical. Center data to zero mean before analysis (default: FALSE).}
+\item{mean_zero}{Logical. If TRUE, assumes that the mean curves are zero;
+otherwise estimates and subtracts them (default: FALSE). This does not
+standardize feature variances.}
 
 \item{print_tuning}{Logical. Print tuning information during sparse fitting (default: TRUE).}
 
@@ -55,6 +59,28 @@ A list containing:
 \description{
 Performs canonical cross-covariance analysis between two high-dimensional longitudinal datasets.
 }
+\details{
+Before calling \code{FACD()}, scale every observed \code{$time} and the
+corresponding \code{time_grid} to [0, 1], for example using
+\code{(time - time_min) / (time_max - time_min)} with \code{time_max > time_min}.
+Use one time mapping across all subjects and features within each dataset,
+rather than rescaling each subject separately. When X and Y share a physical
+time axis, use the same units and reference interval to preserve alignment.
+
+Feature-wise standardization is recommended, especially when features have
+different units or scales. For each feature, pool observations across subjects
+and time points, then subtract its mean and divide by its standard deviation
+(z-score scaling). Remove features with no finite observations or zero variance
+before standardizing. Do not standardize each subject's trajectory separately.
+\code{FACD()} does not automatically rescale time or standardize feature variances.
+
+\code{\link{wrap_dat}} automatically rescales time to [0, 1] and centers each
+feature, dividing by the root mean square (RMS) of its uncentered values
+rather than its standard deviation. For z-score preprocessing, standardize the raw feature
+columns before wrapping. Each call to \code{wrap_dat()} uses its own observed
+time range; check that these ranges match when X and Y share a time axis.
+The bundled datasets are already prepared for the example.
+}
 \examples{
 #-------------------------------------------------------------
 # Example code
@@ -69,13 +95,33 @@ library(ggrepel)
 # The dat_X and dat_Y objects should have the following structure:
 #   n            : sample size
 #   p            : number of features (dimension)
-#   dat          : nested list of length p, each a list of length n with elements $time and $val
+#   dat          : nested list of length p, each a list of length n with
+# elements $time and $val
 #   sub_label    : vector of subject identifiers
 #   feature_label: vector of feature names
 #   time_grid    : transformed unique time points on [0,1]
 #   time_min     : minimum original time
 #   time_max     : maximum original time
 # These objects can be created from raw data via wrap_dat().
+#
+# Before FACD(): all observed $time values and time_grid must be in [0, 1].
+# Use one time mapping across subjects/features, not one per subject.
+# Feature-wise z-score standardization across subjects and times is recommended.
+# wrap_dat() rescales time automatically and centers/scales values by their RMS;
+# its value scaling is not the same as dividing by the standard deviation.
+# The bundled dat_X and dat_Y are already prepared; do not preprocess them again.
+#
+# For your own raw data (rows = observations; columns = numeric features):
+# Remove all-missing/non-finite and zero-variance features before scaling.
+# raw_X <- as.data.frame(scale(raw_X))
+# raw_Y <- as.data.frame(scale(raw_Y))
+# dat_X <- wrap_dat(raw_X, count_X, time_label_X)
+# dat_Y <- wrap_dat(raw_Y, count_Y, time_label_Y)
+# count_X/count_Y contain SubjectID and integer timepoint indices into the
+# corresponding numeric time_label vector (e.g., c(0, 2, 15, 30, 60)).
+# Each dataset must have at least two distinct observed times. If X and Y share
+# a physical time axis, check that wrap_dat() uses the same time bounds for both.
+# Subjects must also appear in the same order in dat_X and dat_Y.
 
 data(dat_X)
 data(dat_Y)
@@ -85,7 +131,7 @@ data(dat_Y)
 # Parameters
 grid_num   <- 201                        # number of grid points in [0,1]
 max_var    <- floor(c(min(dat_X$p/2, dat_X$n),
-                      min(dat_Y$p/2, dat_Y$n)))  # max selected features per dataset
+                      min(dat_Y$p/2, dat_Y$n)))  # max selected features
 
 # Run FACD (first canonical component only)
 Result <- FACD(
@@ -105,11 +151,14 @@ Y_cca <- Result$Z_Y[[1]]
 n <- dat_X$n
 
 # Prepare data frame for plotting
-cor <- abs(crossprod(X_cca, Y_cca) / sqrt(crossprod(X_cca, X_cca) * crossprod(Y_cca, Y_cca)))
+cor <- abs(crossprod(X_cca, Y_cca) /
+             sqrt(crossprod(X_cca, X_cca) * crossprod(Y_cca, Y_cca)))
 dat_plot <- data.frame(
   X = X_cca, Y = Y_cca,
-  cor = c(cor, rep(NA, n - 1)), var1 = rep("Metabolite", n), var2 = rep("Lipid", n),
-  text_x = c(min(X_cca), rep(NA, n - 1)), text_y = c(max(Y_cca) + 0.2, rep(NA, n - 1))
+  cor = c(cor, rep(NA, n - 1)), var1 = rep("Metabolite", n),
+  var2 = rep("Lipid", n),
+  text_x = c(min(X_cca), rep(NA, n - 1)),
+  text_y = c(max(Y_cca) + 0.2, rep(NA, n - 1))
 )
 
 ggplot(dat_plot) + 
@@ -157,6 +206,6 @@ res_plot <- plot_FACD(
 print(res_plot$plot)
 
 # Important features
-cat("Top Metabolite features:\n", paste(res_plot$feature_X, collapse = ", "), "\n")
-cat("Top Lipid features:\n",      paste(res_plot$feature_Y, collapse = ", "), "\n")
+cat("Top Meta features:\n", paste(res_plot$feature_X, collapse = ", "), "\n")
+cat("Top Lipid features:\n", paste(res_plot$feature_Y, collapse = ", "), "\n")
 }

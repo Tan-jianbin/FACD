@@ -12,7 +12,8 @@ wrap_dat(dat, dat_count, time_label)
 \item{dat_count}{A data frame containing at least columns \code{SubjectID} and \code{timepoint},
 mapping each row of \code{dat} to a specific subject and time index.}
 
-\item{time_label}{A numeric or character vector used to map \code{timepoint} indices to actual times.}
+\item{time_label}{A finite numeric vector used to map \code{timepoint} indices
+to actual times. Observed times must contain at least two distinct values.}
 }
 \value{
 A list with components:
@@ -29,4 +30,17 @@ A list with components:
 \description{
 Converts a wide-format data matrix and accompanying sample metadata into the
 nested list structure required by FACD, scaling values and normalizing time.
+}
+\details{
+This function rescales observed times to [0, 1] using the minimum and maximum
+across all subjects and features in this dataset. The original bounds are
+returned as \code{time_min} and \code{time_max}. For datasets sharing a physical
+time axis, check that separate calls use the same units and time bounds.
+
+After averaging duplicate subject/timepoint measurements, each feature is
+centered by its pooled mean and divided by \code{sqrt(mean(values^2))}, the
+RMS of its uncentered values. This is not unit-variance z-score scaling.
+To apply the recommended z-score preprocessing, standardize the raw feature
+columns across all subjects and time points before calling \code{wrap_dat()}.
+Remove features with no finite observations or zero variance beforehand.
 }

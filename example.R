@@ -11,7 +11,7 @@ library(ggrepel)
 # The dat_X and dat_Y objects should have the following structure:
 #   n            : sample size
 #   p            : number of features (dimension)
-#   dat          : nested list of length p, each a list of length n with 
+#   dat          : nested list of length p, each a list of length n with
 # elements $time and $val
 #   sub_label    : vector of subject identifiers
 #   feature_label: vector of feature names
@@ -19,6 +19,25 @@ library(ggrepel)
 #   time_min     : minimum original time
 #   time_max     : maximum original time
 # These objects can be created from raw data via wrap_dat().
+#
+# Before FACD(): all observed $time values and time_grid must be in [0, 1].
+# Use one time mapping across subjects/features, not one per subject.
+# Feature-wise z-score standardization across subjects and times is recommended.
+# wrap_dat() rescales time automatically and centers/scales values by their RMS;
+# its value scaling is not the same as dividing by the standard deviation.
+# The bundled dat_X and dat_Y are already prepared; do not preprocess them again.
+#
+# For your own raw data (rows = observations; columns = numeric features):
+# Remove all-missing/non-finite and zero-variance features before scaling.
+# raw_X <- as.data.frame(scale(raw_X))
+# raw_Y <- as.data.frame(scale(raw_Y))
+# dat_X <- wrap_dat(raw_X, count_X, time_label_X)
+# dat_Y <- wrap_dat(raw_Y, count_Y, time_label_Y)
+# count_X/count_Y contain SubjectID and integer timepoint indices into the
+# corresponding numeric time_label vector (e.g., c(0, 2, 15, 30, 60)).
+# Each dataset must have at least two distinct observed times. If X and Y share
+# a physical time axis, check that wrap_dat() uses the same time bounds for both.
+# Subjects must also appear in the same order in dat_X and dat_Y.
 
 data(dat_X)
 data(dat_Y)
@@ -28,7 +47,7 @@ data(dat_Y)
 # Parameters
 grid_num   <- 201                        # number of grid points in [0,1]
 max_var    <- floor(c(min(dat_X$p/2, dat_X$n),
-                      min(dat_Y$p/2, dat_Y$n)))  # max selected features 
+                      min(dat_Y$p/2, dat_Y$n)))  # max selected features
 
 # Run FACD (first canonical component only)
 Result <- FACD(
@@ -48,13 +67,13 @@ Y_cca <- Result$Z_Y[[1]]
 n <- dat_X$n
 
 # Prepare data frame for plotting
-cor <- abs(crossprod(X_cca, Y_cca) / 
+cor <- abs(crossprod(X_cca, Y_cca) /
              sqrt(crossprod(X_cca, X_cca) * crossprod(Y_cca, Y_cca)))
 dat_plot <- data.frame(
   X = X_cca, Y = Y_cca,
-  cor = c(cor, rep(NA, n - 1)), var1 = rep("Metabolite", n), 
+  cor = c(cor, rep(NA, n - 1)), var1 = rep("Metabolite", n),
   var2 = rep("Lipid", n),
-  text_x = c(min(X_cca), rep(NA, n - 1)), 
+  text_x = c(min(X_cca), rep(NA, n - 1)),
   text_y = c(max(Y_cca) + 0.2, rep(NA, n - 1))
 )
 

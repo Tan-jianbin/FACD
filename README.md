@@ -12,6 +12,33 @@ install.packages("remotes")
 remotes::install_github("Tan-jianbin/FACD")
 ```
 
+## Data preprocessing
+
+Before calling `FACD()`:
+
+- **Scale time to `[0, 1]`.** Transform all observed `$time` values and
+  `time_grid`, for example with `(time - time_min) / (time_max - time_min)`.
+  The time range must be nonzero. Use one mapping across all subjects and
+  features within a dataset. If X and Y share a physical time axis, use the
+  same units and reference interval for both.
+- **Standardize features before analysis**, especially when their units or
+  scales differ. A recommended choice is z-score scaling: subtract each
+  feature's mean and divide by its standard deviation, pooling observations
+  across subjects and time points. Do not scale each subject separately.
+  Remove features with no finite observations or zero variance first.
+- **Match subjects across datasets** and keep them in the same order.
+
+`FACD()` does not automatically rescale time or standardize feature variances.
+`mean_zero = FALSE` estimates and subtracts mean curves; it does not replace
+feature standardization.
+
+`wrap_dat()` automatically rescales time to `[0, 1]` and centers feature values,
+but divides by the RMS of the uncentered values rather than their standard
+deviation. For z-score preprocessing, apply `scale()` to the raw feature columns
+before wrapping, as illustrated below. Each call uses its own observed time
+bounds, so check `time_min` and `time_max` when X and Y share a physical time axis.
+The bundled example datasets are already prepared and need no further scaling.
+
 ## Example
 
 The full worked example is stored in **example.R** and is reproduced below:
@@ -37,6 +64,25 @@ library(ggrepel)
 #   time_min     : minimum original time
 #   time_max     : maximum original time
 # These objects can be created from raw data via wrap_dat().
+#
+# Before FACD(): all observed $time values and time_grid must be in [0, 1].
+# Use one time mapping across subjects/features, not one per subject.
+# Feature-wise z-score standardization across subjects and times is recommended.
+# wrap_dat() rescales time automatically and centers/scales values by their RMS;
+# its value scaling is not the same as dividing by the standard deviation.
+# The bundled dat_X and dat_Y are already prepared; do not preprocess them again.
+#
+# For your own raw data (rows = observations; columns = numeric features):
+# Remove all-missing/non-finite and zero-variance features before scaling.
+# raw_X <- as.data.frame(scale(raw_X))
+# raw_Y <- as.data.frame(scale(raw_Y))
+# dat_X <- wrap_dat(raw_X, count_X, time_label_X)
+# dat_Y <- wrap_dat(raw_Y, count_Y, time_label_Y)
+# count_X/count_Y contain SubjectID and integer timepoint indices into the
+# corresponding numeric time_label vector (e.g., c(0, 2, 15, 30, 60)).
+# Each dataset must have at least two distinct observed times. If X and Y share
+# a physical time axis, check that wrap_dat() uses the same time bounds for both.
+# Subjects must also appear in the same order in dat_X and dat_Y.
 
 data(dat_X)
 data(dat_Y)

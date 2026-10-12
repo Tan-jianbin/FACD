@@ -17,3 +17,18 @@ knitr::opts_chunk$set(
 ```{r setup}
 library(FACD)
 ```
+
+## Data preprocessing
+
+Before calling `FACD()`, scale all observed times and `time_grid` to `[0, 1]`
+using one mapping across subjects and features within each dataset. Use the same
+units and reference interval when X and Y share a physical time axis.
+Feature-wise z-score standardization across subjects and time points is
+recommended; remove features with no finite observations or zero variance first.
+Keep subjects in the same order in both datasets.
+
+`wrap_dat()` automatically rescales time, but its value scaling uses the RMS of
+the uncentered values rather than the standard deviation. Apply `scale()` to raw
+feature columns before wrapping if z-score preprocessing is desired. `FACD()`
+itself does not perform these scaling steps. The bundled datasets are already
+prepared. See `?FACD` for the worked example and `?wrap_dat` for preprocessing details.
