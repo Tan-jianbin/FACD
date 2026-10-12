@@ -12,33 +12,6 @@ install.packages("remotes")
 remotes::install_github("Tan-jianbin/FACD")
 ```
 
-## Data preprocessing
-
-Before calling `FACD()`:
-
-- **Scale time to `[0, 1]`.** Transform all observed `$time` values and
-  `time_grid`, for example with `(time - time_min) / (time_max - time_min)`.
-  The time range must be nonzero. Use one mapping across all subjects and
-  features within a dataset. If X and Y share a physical time axis, use the
-  same units and reference interval for both.
-- **Standardize features before analysis**, especially when their units or
-  scales differ. A recommended choice is z-score scaling: subtract each
-  feature's mean and divide by its standard deviation, pooling observations
-  across subjects and time points. Do not scale each subject separately.
-  Remove features with no finite observations or zero variance first.
-- **Match subjects across datasets** and keep them in the same order.
-
-`FACD()` does not automatically rescale time or standardize feature variances.
-`mean_zero = FALSE` estimates and subtracts mean curves; it does not replace
-feature standardization.
-
-`wrap_dat()` automatically rescales time to `[0, 1]` and centers feature values,
-but divides by the RMS of the uncentered values rather than their standard
-deviation. For z-score preprocessing, apply `scale()` to the raw feature columns
-before wrapping, as illustrated below. Each call uses its own observed time
-bounds, so check `time_min` and `time_max` when X and Y share a physical time axis.
-The bundled example datasets are already prepared and need no further scaling.
-
 ## Example
 
 The full worked example is stored in **example.R** and is reproduced below:
