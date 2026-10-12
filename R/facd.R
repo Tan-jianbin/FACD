@@ -1,4 +1,4 @@
-#' Canonical Cross-Covariance Analysis (CCVA)
+#' Functional-Aggregated Cross-covariance Decomposition (FACD)
 #'
 #' Performs canonical cross-covariance analysis between two high-dimensional longitudinal datasets.
 #'
@@ -12,6 +12,7 @@
 #' @param Sparse Logical. If TRUE, perform sparse CCA with variable selection (default: TRUE).
 #' @param comp Integer. Number of canonical components to compute.
 #' @param FVE Numeric. Fraction of variance explained threshold for basis estimation (default: 0.95).
+#' @param max_comp_num Integer. Maximum number of basis components (default: 5).
 #' @return A list containing:
 #' \item{Mean}{Estimated means for each feature.}
 #' \item{Time_mark}{Mapping from subject times to grid indices.}
@@ -19,11 +20,13 @@
 #' \item{var_X, var_Y}{Selected variables for each dataset.}
 #' \item{load_X, load_Y}{Longitudinal/functional loading for each dataset.}
 #' \item{Z_X, Z_Y}{Subject-specific canonical variables.}
+#' \item{eta}{Estimated component cross-covariances.}
+#' \item{tol_cov}{Frobenius norm of the initial cross-covariance matrix.}
 #' 
 #' @example example.R
 #' @export
-CCVA <- function(grid_num = 201, dat_X, dat_Y, mean_zero = F, print_tuning = T, length_tun = 30, 
-                 max_var, Sparse = T, comp, FVE = 0.95){
+FACD <- function(grid_num = 201, dat_X, dat_Y, mean_zero = F, print_tuning = T, length_tun = 30, 
+                 max_var, Sparse = T, comp, FVE = 0.95, max_comp_num = 5){
   
   ## First-step estimation
   time_grid <- seq(0, 1, length.out = grid_num)
@@ -31,7 +34,7 @@ CCVA <- function(grid_num = 201, dat_X, dat_Y, mean_zero = F, print_tuning = T, 
   p_X <- dat_X$p
   p_Y <- dat_Y$p
   
-  Optimal_basis <- Optimal_basis_est(dat_X, dat_Y, grid_num, max_comp_num = 5, mean_zero, FVE)
+  Optimal_basis <- Optimal_basis_est(dat_X, dat_Y, grid_num, max_comp_num = max_comp_num, mean_zero, FVE)
   
   group_x <- rep(1:p_X, each = Optimal_basis$Optimal_bais$X$comp_num)
   group_y <- rep(1:p_Y, each = Optimal_basis$Optimal_bais$Y$comp_num)
@@ -95,30 +98,87 @@ CCVA <- function(grid_num = 201, dat_X, dat_Y, mean_zero = F, print_tuning = T, 
     
     if(comp > 1){
       for(r in 2:comp){
-        fit_matrix <- fit_cca$cov[r-1] * tcrossprod(fit_cca$X_coef[,r-1], fit_cca$Y_coef[,r-1])
-        Cov <- Cov - fit_matrix
-        fit <- svd(Cov)
-        Initial_cca <- list(max_sin = fit$d[1], X_coef = fit$u[,1], Y_coef = fit$v[,1],
-                            Cov = Cov,
-                            CV = lapply(1:cv_num, function(k){
-                              list(train = Initial_cca$CV[[k]]$train - fit_matrix,
-                                   test = Initial_cca$CV[[k]]$test - fit_matrix)
-                            }), cv_num = cv_num
-        )
-        gc()
         
-        fit <- SLCCA_tr(group_x = group_x, group_y = group_y, print_tuning, length_tun, max_var, Initial_cca, n, p_X, p_Y)
+        u_previous <- fit_cca$X_coef[, r - 1]
+        v_previous <- fit_cca$Y_coef[, r - 1]
+        
+        eta_previous <- drop(
+          crossprod(
+            u_previous,
+            Cov %*% v_previous
+          )
+        )
+        
+        fit_matrix <- eta_previous *
+          tcrossprod(u_previous, v_previous)
+        
+        Cov <- Cov - fit_matrix
+        
+        CV_previous <- Initial_cca$CV
+        
+        CV_residual <- lapply(seq_len(cv_num), function(k){
+          
+          eta_train <- drop(
+            crossprod(
+              u_previous,
+              CV_previous[[k]]$train %*% v_previous
+            )
+          )
+          
+          eta_test <- drop(
+            crossprod(
+              u_previous,
+              CV_previous[[k]]$test %*% v_previous
+            )
+          )
+          
+          list(
+            train = CV_previous[[k]]$train -
+              eta_train * tcrossprod(u_previous, v_previous),
+            
+            test = CV_previous[[k]]$test -
+              eta_test * tcrossprod(u_previous, v_previous)
+          )
+        })
+        
+        svd_fit <- svd(Cov)
+        
+        Initial_cca <- list(
+          max_sin = svd_fit$d[1],
+          X_coef = svd_fit$u[, 1],
+          Y_coef = svd_fit$v[, 1],
+          Cov = Cov,
+          CV = CV_residual,
+          cv_num = cv_num
+        )
+        
+        fit <- SLCCA_tr(
+          group_x = group_x,
+          group_y = group_y,
+          print_tuning,
+          length_tun,
+          max_var,
+          Initial_cca,
+          n,
+          p_X,
+          p_Y
+        )
+        
         gc()
         
         var_X[[r]] <- fit$var_X
         var_Y[[r]] <- fit$var_Y
         
-        fit_cca$X_coef[,r] <- fit$fit_opt$fit_cca$X_coef
+        fit_cca$X_coef[, r] <- fit$fit_opt$fit_cca$X_coef
         
-        fit_cca$Y_coef[,r] <- fit$fit_opt$fit_cca$Y_coef
+        fit_cca$Y_coef[, r] <- fit$fit_opt$fit_cca$Y_coef
         
-        fit_cca$cov[r] <- t(fit_cca$X_coef[,r]) %*% Cov %*% fit_cca$Y_coef[,r]
-        
+        fit_cca$cov[r] <- drop(
+          crossprod(
+            fit_cca$X_coef[, r],
+            Cov %*% fit_cca$Y_coef[, r]
+          )
+        )
       }
     }
     rm(Initial_cca)
@@ -136,21 +196,68 @@ CCVA <- function(grid_num = 201, dat_X, dat_Y, mean_zero = F, print_tuning = T, 
     matrix(fit_cca$Y_coef[,k], p_Y, byrow = T) %*% t(Optimal_basis$Optimal_bais$Y$phi[,1:Optimal_basis$Optimal_bais$Y$comp_num])
   })
   
-  Z_X <- lapply(1:comp, function(k){
-    sapply(1:n, function(i){
-      sum(sapply(1:p_X, function(j){
-        mean((dat_X$dat[[j]][[i]]$val - Optimal_basis$Mean$X[[j]]$mu[Optimal_basis$Time_mark$X[[i]]]) * load_X[[k]][j,Optimal_basis$Time_mark$X[[i]]])
-      }))
-    })
-  })
+  if(comp > 1){
+    for(r in 2:comp){
+      for(s in 1:(r - 1)){
+        load_X[[r]] <- load_X[[r]] -
+          sum(load_X[[r]] * load_X[[s]]) /
+          sum(load_X[[s]]^2) * load_X[[s]]
+        
+        load_Y[[r]] <- load_Y[[r]] -
+          sum(load_Y[[r]] * load_Y[[s]]) /
+          sum(load_Y[[s]]^2) * load_Y[[s]]
+      }
+      
+      load_X[[r]] <- load_X[[r]] / sqrt(sum(rowMeans(load_X[[r]]^2)))
+      load_Y[[r]] <- load_Y[[r]] / sqrt(sum(rowMeans(load_Y[[r]]^2)))
+    }
+  }
   
-  Z_Y <- lapply(1:comp, function(k){
-    sapply(1:n, function(i){
-      sum(sapply(1:p_Y, function(j){
-        mean((dat_Y$dat[[j]][[i]]$val - Optimal_basis$Mean$Y[[j]]$mu[Optimal_basis$Time_mark$Y[[i]]]) * load_Y[[k]][j,Optimal_basis$Time_mark$Y[[i]]])
-      }))
+  Z_X <- vector("list", comp)
+  
+  for(k in 1:comp){
+    Z_X[[k]] <- sapply(1:n, function(i){
+      time_i <- Optimal_basis$Time_mark$X[[i]]
+      score <- 0
+      
+      for(j in 1:p_X){
+        residual <- dat_X$dat[[j]][[i]]$val - Optimal_basis$Mean$X[[j]]$mu[time_i]
+        
+        if(k > 1){
+          for(r in 1:(k - 1)){
+            residual <- residual - Z_X[[r]][i] * load_X[[r]][j, time_i]
+          }
+        }
+        
+        score <- score + mean(residual * load_X[[k]][j, time_i])
+      }
+      
+      score
     })
-  })
+  }
+  
+  Z_Y <- vector("list", comp)
+  
+  for(k in 1:comp){
+    Z_Y[[k]] <- sapply(1:n, function(i){
+      time_i <- Optimal_basis$Time_mark$Y[[i]]
+      score <- 0
+      
+      for(j in 1:p_Y){
+        residual <- dat_Y$dat[[j]][[i]]$val - Optimal_basis$Mean$Y[[j]]$mu[time_i]
+        
+        if(k > 1){
+          for(r in 1:(k - 1)){
+            residual <- residual - Z_Y[[r]][i] * load_Y[[r]][j, time_i]
+          }
+        }
+        
+        score <- score + mean(residual * load_Y[[k]][j, time_i])
+      }
+      
+      score
+    })
+  }
   
   return(list(Mean = Optimal_basis$Mean,
               Time_mark = Optimal_basis$Time_mark,
@@ -160,7 +267,9 @@ CCVA <- function(grid_num = 201, dat_X, dat_Y, mean_zero = F, print_tuning = T, 
               load_X = load_X,
               load_Y = load_Y,
               Z_X = Z_X,
-              Z_Y = Z_Y
+              Z_Y = Z_Y,
+              eta = fit_cca$cov[1:comp],
+              tol_cov = tol_cov
   ))
 }
 
@@ -354,7 +463,7 @@ Optimal_basis_est <- function(dat_X, dat_Y, grid_num, max_comp_num = 5, mean_zer
 #' @export
 #'
 #' @note Ensure the following helper functions are implemented or imported:
-#'   * \code{cca_AX(lambda, abs, Initial_cca, n, group_x, group_y)}
+#'   * \code{cca_AX(lambda, tol, Initial_cca, n, group_x, group_y)}
 #'   * \code{cv_slcca(lambda, Initial_cca, n, group_x, group_y, max_var)}
 #' @importFrom stats sd
 #' @export
@@ -364,15 +473,15 @@ SLCCA_tr <- function(group_x, group_y, print_tuning = F, length_tun = 30, max_va
   vec <- c(Initial_cca$Cov %*% Initial_cca$Y_coef) 
   max_t <- max(sapply(unique(group_x), function(j) sqrt(sum(vec[which(group_x == j)] ^ 2)))) 
   
-  fit <- cca_AX(lambda = c(max_t, max_t), abs = 0.001, Initial_cca, n, group_x, group_y)
+  fit <- cca_AX(lambda = c(max_t, max_t), tol = 0.001, Initial_cca, n, group_x, group_y)
   var_num_X <- length(which(sapply(unique(group_x), function(j) sum(fit$X_coef[group_x == j] ^ 2)) != 0))
   var_num_Y <- length(which(sapply(unique(group_y), function(j) sum(fit$Y_coef[group_y == j] ^ 2)) != 0))
   
   while(var_num_X + var_num_Y != 0){
     max_t <- max_t * 5
-    fit <- cca_AX(lambda = c(max_t, max_t), abs = 0.001, Initial_cca, n, group_x, group_y)
-    var_num_X <- length(which(sapply(unique(group_x), function(j) sum(fit$fit_cca$X_coef[group_x == j] ^ 2)) != 0))
-    var_num_Y <- length(which(sapply(unique(group_y), function(j) sum(fit$fit_cca$Y_coef[group_y == j] ^ 2)) != 0))
+    fit <- cca_AX(lambda = c(max_t, max_t), tol = 0.001, Initial_cca, n, group_x, group_y)
+    var_num_X <- length(which(sapply(unique(group_x), function(j) sum(fit$X_coef[group_x == j] ^ 2)) != 0))
+    var_num_Y <- length(which(sapply(unique(group_y), function(j) sum(fit$Y_coef[group_y == j] ^ 2)) != 0))
   }
   
   lambda_list <- c(max_t / 2, max_t / 10, max_t / 100, max_t / 1000, max_t / 10000)
@@ -381,7 +490,7 @@ SLCCA_tr <- function(group_x, group_y, print_tuning = F, length_tun = 30, max_va
   
   for(a in 1:length(lambda_list)){
     for(b in 1:length(lambda_list)){
-      fit <- cca_AX(lambda = c(lambda_list[a], lambda_list[b]), abs = 0.001, Initial_cca, n, group_x, group_y)
+      fit <- cca_AX(lambda = c(lambda_list[a], lambda_list[b]), tol = 0.001, Initial_cca, n, group_x, group_y)
       var_num_X[b,a] <- length(which(sapply(unique(group_x), function(j) sum(fit$X_coef[group_x == j] ^ 2)) != 0))
       var_num_Y[b,a] <- length(which(sapply(unique(group_y), function(j) sum(fit$Y_coef[group_y == j] ^ 2)) != 0))
     }
@@ -390,10 +499,10 @@ SLCCA_tr <- function(group_x, group_y, print_tuning = F, length_tun = 30, max_va
   A <- var_num_X >= max_var[1]
   if(length(which(colMeans(A) > 0)) == 0){
     min_X <- max_t / 100000
-    fit <- cca_AX(lambda = c(min_X, max_t), abs = 0.001, Initial_cca, n, group_x, group_y)
+    fit <- cca_AX(lambda = c(min_X, max_t), tol = 0.001, Initial_cca, n, group_x, group_y)
     while(length(which(sapply(unique(group_x), function(j) sum(fit$X_coef[group_x == j] ^ 2)) != 0)) <= max_var[1]){
       min_X <- min_X / 10
-      fit <- cca_AX(lambda = c(min_X, max_t), abs = 0.001, Initial_cca, n, group_x, group_y)
+      fit <- cca_AX(lambda = c(min_X, max_t), tol = 0.001, Initial_cca, n, group_x, group_y)
     }
   }else{
     min_X <- lambda_list[min(which(colMeans(A) > 0))]
@@ -402,10 +511,10 @@ SLCCA_tr <- function(group_x, group_y, print_tuning = F, length_tun = 30, max_va
   A <- var_num_Y >= max_var[2]
   if(length(which(rowMeans(A) > 0)) == 0){
     min_Y <- max_t / 100000
-    fit <- cca_AX(lambda = c(min_X, min_Y), abs = 0.001, Initial_cca, n, group_x, group_y)
+    fit <- cca_AX(lambda = c(min_X, min_Y), tol = 0.001, Initial_cca, n, group_x, group_y)
     while(length(which(sapply(unique(group_y), function(j) sum(fit$Y_coef[group_y == j] ^ 2)) != 0)) <= max_var[2]){
       min_Y <- min_Y / 10
-      fit <- cca_AX(lambda = c(min_X, min_Y), abs = 0.001, Initial_cca, n, group_x, group_y)
+      fit <- cca_AX(lambda = c(min_X, min_Y), tol = 0.001, Initial_cca, n, group_x, group_y)
     }
   }else{
     min_Y <- lambda_list[min(which(rowMeans(A) > 0))]
@@ -483,6 +592,7 @@ SLCCA_tr <- function(group_x, group_y, print_tuning = F, length_tun = 30, max_va
   
   fit_opt_1 <- cv_slcca(lambda = lambda_1, Initial_cca, n, group_x, group_y, max_var)
   fit_opt_2 <- cv_slcca(lambda = lambda_2, Initial_cca, n, group_x, group_y, max_var)
+  
   if(sum(sapply(unique(group_x), function(j) sum(fit_opt_1$fit_cca$X_coef[group_x == j] ^ 2)) != 0) + 
      sum(sapply(unique(group_y), function(j) sum(fit_opt_1$fit_cca$Y_coef[group_y == j] ^ 2)) != 0) <=
      sum(sapply(unique(group_x), function(j) sum(fit_opt_2$fit_cca$X_coef[group_x == j] ^ 2)) != 0) + 
@@ -534,7 +644,7 @@ FSVD_r <- function(M, time, time_mark, R_max, FVE){
   op_basis$workGrid <- time
   op_basis$eigenvalue <- fit$eigendocomposition$values[1:R_max] / length(time)
   
-  op_basis$comp_num <- max(sum(cumsum(op_basis$eigenvalue) / tol_norm <= FVE)  + 1, 2)
+  op_basis$comp_num <- min(max(sum(cumsum(op_basis$eigenvalue) / tol_norm <= FVE) + 1, 2), R_max)
   
   return(op_basis)
 }
@@ -563,7 +673,7 @@ FSVD_r <- function(M, time, time_mark, R_max, FVE){
 fit_basis <- function(M, time_mark, time){
   
   fit_cov <- fit_cov_surface(M, time_mark, time_mark, time)
-  fit <- eigen(fit_cov, symmetric = T)
+  fit <- base::eigen(fit_cov, symmetric = T)
   eigenfunction <- fit$vectors[,1] * sqrt(nrow(fit_cov))
   
   return(
@@ -656,7 +766,7 @@ fit_cov_surface <- function(M, time_mark_X, time_mark_Y, time){
 #' Performs alternating updates for penalized canonical correlation analysis with group lasso penalties.
 #'
 #' @param lambda Numeric vector of length 2; penalties for X and Y groups.
-#' @param abs Numeric; convergence threshold for relative change in coefficients.
+#' @param tol Numeric; convergence threshold for relative change in coefficients.
 #' @param Initial_cca List; initial CCA state containing `Cov`, `X_coef`, and `Y_coef`.
 #' @param n Integer; number of subjects (unused in this function, kept for interface consistency).
 #' @param group_x Integer vector; group labels for X coefficients.
@@ -668,7 +778,7 @@ fit_cov_surface <- function(M, time_mark_X, time_mark_Y, time){
 #'     \item{Y_coef}{Updated Y canonical coefficients (numeric vector).}}
 #'
 #' @export
-cca_AX <- function(lambda, abs, Initial_cca, n, group_x, group_y){
+cca_AX <- function(lambda, tol, Initial_cca, n, group_x, group_y){
   
   a_X <- Initial_cca$X_coef
   a_Y <- Initial_cca$Y_coef
@@ -679,7 +789,7 @@ cca_AX <- function(lambda, abs, Initial_cca, n, group_x, group_y){
   num_X <- length(unique(group_x))
   num_Y <- length(unique(group_y))
   
-  while((error > abs) & (ite < 200)){
+  while((error > tol) & (ite < 200)){
     ite <- ite + 1
     
     a_X_t <- a_X
@@ -757,7 +867,7 @@ cca_AX <- function(lambda, abs, Initial_cca, n, group_x, group_y){
 #' @export
 cv_slcca <- function(lambda, Initial_cca, n, group_x, group_y, max_var){
   
-  fit_cca <- cca_AX(lambda, abs = 0.001, Initial_cca, n, group_x, group_y)
+  fit_cca <- cca_AX(lambda, tol = 0.001, Initial_cca, n, group_x, group_y)
   num_X <- length(which(sapply(unique(group_x), function(j) sum(fit_cca$X_coef[group_x == j] ^ 2)) != 0))
   num_Y <- length(which(sapply(unique(group_y), function(j) sum(fit_cca$Y_coef[group_y == j] ^ 2)) != 0))
   
@@ -767,7 +877,7 @@ cv_slcca <- function(lambda, Initial_cca, n, group_x, group_y, max_var){
     error <- - 10 ^ 10
   }else{
     error <- mean(sapply(1:Initial_cca$cv_num, function(k){
-      cca_cv_fit <- cca_AX(lambda, abs = 0.001, 
+      cca_cv_fit <- cca_AX(lambda, tol = 0.001, 
                            Initial_cca = list(X_coef = fit_cca$X_coef, Y_coef = fit_cca$Y_coef, 
                                               Cov = Initial_cca$CV[[k]]$train), n, 
                            group_x, group_y)
@@ -784,12 +894,12 @@ cv_slcca <- function(lambda, Initial_cca, n, group_x, group_y, max_var){
   ))
 }
 
-#' Plot CCVA Loading Surfaces for X and Y Features
+#' Plot FACD Loading Surfaces for X and Y Features
 #'
 #' Creates a heatmap visualization of the top canonical loading surfaces for X and Y
-#' from a CCVA analysis, highlighting the most important features over specified time points.
+#' from a FACD analysis, highlighting the most important features over specified time points.
 #'
-#' @param fit A list returned by \code{CCVA()}, containing loading surfaces and basis information.
+#' @param fit A list returned by \code{FACD()}, containing loading surfaces and basis information.
 #' @param dat_X A list with component \code{feature_label}: character vector of X feature names.
 #' @param dat_Y A list with component \code{feature_label}: character vector of Y feature names.
 #' @param hight_feature Integer; maximum number of top features to display (default: 5).
@@ -808,7 +918,9 @@ cv_slcca <- function(lambda, Initial_cca, n, group_x, group_y, max_var){
 #'
 #' @import ggplot2 ggrepel
 #' @export
-plot_CCVA <- function(fit, dat_X, dat_Y, hight_feature = 5, k, name_X, name_Y, time_illu, time_label, title_name){
+plot_FACD <- function(fit, dat_X, dat_Y, hight_feature = 5, k, name_X, name_Y, time_illu, time_label, title_name){
+  # Columns evaluated by ggplot2 inside dat_plot.
+  time <- label <- val <- NULL
   
   ## Longitudinal canonical vector
   Canonical_X <- fit$load_X[[k]]
@@ -856,9 +968,13 @@ plot_CCVA <- function(fit, dat_X, dat_Y, hight_feature = 5, k, name_X, name_Y, t
   dat_plot <- rbind(dat_plot_X, dat_plot_Y)
   
   pl <- ggplot(dat_plot) + 
-    geom_tile(aes(x = dat_plot$time, y = dat_plot$label, fill = dat_plot$val)) +
+    geom_tile(aes(x = time, y = label, fill = val)) +
     scale_fill_gradient2(low = "#2b8cbe", mid = "white", high = "orange", midpoint = 0) +
+    # geom_line(aes(x = time, y = val, group = label), color = "gray", alpha = 0.3) +
+    # geom_line(aes(x = time, y =  high_fea, group = label), color = "black") +
+    # ggrepel::geom_text_repel(aes(x = high_x, y = high_y, label = label)) +
     facet_wrap(~data_type, nrow = 1, scales = "free_y") +
+    # geom_hline(yintercept = 0, color = "blue", linetype = 2) +
     theme_bw(base_family = "Times") +
     scale_x_continuous(breaks = time_illu, labels = time_label) +
     xlab("") + ylab("") + 
@@ -867,6 +983,7 @@ plot_CCVA <- function(fit, dat_X, dat_Y, hight_feature = 5, k, name_X, name_Y, t
           legend.position = "right",
           text = element_text(size = 12),
           panel.border = element_blank(),
+          # text = element_text(family = "STHeiti"),
           plot.title = element_text(hjust = 0.5),
           axis.text.x = element_text(angle = 0)) +
     labs(title = title_name, fill = "")
@@ -876,10 +993,10 @@ plot_CCVA <- function(fit, dat_X, dat_Y, hight_feature = 5, k, name_X, name_Y, t
               feature_Y = feature_Y))
 }
 
-#' Wrap Raw Data into CCVA-Compatible Format
+#' Wrap Raw Data into FACD-Compatible Format
 #'
 #' Converts a wide-format data matrix and accompanying sample metadata into the
-#' nested list structure required by CCVA, scaling values and normalizing time.
+#' nested list structure required by FACD, scaling values and normalizing time.
 #'
 #' @param dat A data frame with column names as feature labels.
 #' @param dat_count A data frame containing at least columns \code{SubjectID} and \code{timepoint},

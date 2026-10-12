@@ -3,7 +3,7 @@
 #-------------------------------------------------------------
 
 # Load required packages
-library(CCVA)
+library(FACD)
 library(ggplot2)
 library(ggrepel)
 
@@ -22,15 +22,15 @@ library(ggrepel)
 data(dat_X)
 data(dat_Y)
 
-# 2. CCVA estimation ------------------------------------------------------
+# 2. FACD estimation ------------------------------------------------------
 
 # Parameters
 grid_num   <- 201                        # number of grid points in [0,1]
 max_var    <- floor(c(min(dat_X$p/2, dat_X$n),
                       min(dat_Y$p/2, dat_Y$n)))  # max selected features per dataset
 
-# Run CCVA (first canonical component only)
-Result <- CCVA(
+# Run FACD (first canonical component only)
+Result <- FACD(
   grid_num     = grid_num,
   dat_X        = dat_X,
   dat_Y        = dat_Y,
@@ -82,7 +82,7 @@ time_lbl  <- c("Baseline", "2 min", "15 min", "30 min", "60 min")
 h_feat    <- 10  # number of top features to display
 
 # Generate heatmap plot and retrieve important features
-res_plot <- plot_CCVA(
+res_plot <- plot_FACD(
   fit           = Result,
   dat_X         = dat_X,
   dat_Y         = dat_Y,

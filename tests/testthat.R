@@ -7,6 +7,6 @@
 # * https://testthat.r-lib.org/articles/special-files.html
 
 library(testthat)
-library(CCVA)
+library(FACD)
 
-test_check("CCVA")
+test_check("FACD")

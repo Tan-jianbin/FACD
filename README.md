@@ -1,9 +1,9 @@
-# CCVA: Canonical Cross-Covariance Analysis for High-Dimensional Longitudinal Data
+# FACD: Functional-Aggregated Cross-covariance Decomposition for High-Dimensional Longitudinal Data
 
-**CCVA** is an R package implementing the methodology from the paper  **“Associating High-Dimensional Longitudinal Datasets through Canonical Cross-Covariance Analysis”**  by Jianbin Tan and Pixu Shi.
+**FACD** is an R package implementing the methodology from the paper **"Associating High-Dimensional Longitudinal Datasets through an Efficient Cross-Covariance Decomposition"** by *Jianbin Tan* and *Pixu Shi*, available on [arXiv](https://arxiv.org/abs/2601.13405).
 
 ## Description: 
- CCVA encodes associations between high-dimensional longitudinal datasets by providing a data-adaptive basis to capture longitudinal signals and incorporating variable selection to facilitate the discovery of key associations.
+ FACD encodes associations between high-dimensional longitudinal datasets by providing a data-adaptive basis to capture longitudinal signals and incorporating variable selection to facilitate the discovery of key associations.
 
 ## Installation
 
@@ -11,13 +11,17 @@ You can install the development version directly from GitHub:
 
 ```r
 install.packages("remotes")    # if not already installed
-remotes::install_github("Tan-jianbin/CCVA")
+remotes::install_github("Tan-jianbin/FACD")
 ```
 
 
+The package is now named `FACD` (formerly `CCVA`). After installing the updated
+version, use `library(FACD)`, `FACD()`, and `plot_FACD()`. See [NEWS.md](NEWS.md)
+for the changes in version 0.2.0.
+
 ## Example
 
-The full worked example is stored in **example.R** and is included here automatically:
+The full worked example is stored in **example.R** and is reproduced below:
 
 ```r
 #-------------------------------------------------------------
@@ -25,7 +29,7 @@ The full worked example is stored in **example.R** and is included here automati
 #-------------------------------------------------------------
 
 # Load required packages
-library(CCVA)
+library(FACD)
 library(ggplot2)
 library(ggrepel)
 
@@ -44,15 +48,15 @@ library(ggrepel)
 data(dat_X)
 data(dat_Y)
 
-# 2. CCVA estimation ------------------------------------------------------
+# 2. FACD estimation ------------------------------------------------------
 
 # Parameters
 grid_num   <- 201                        # number of grid points in [0,1]
 max_var    <- floor(c(min(dat_X$p/2, dat_X$n),
                       min(dat_Y$p/2, dat_Y$n)))  # max selected features per dataset
 
-# Run CCVA (first canonical component only)
-Result <- CCVA(
+# Run FACD (first canonical component only)
+Result <- FACD(
   grid_num     = grid_num,
   dat_X        = dat_X,
   dat_Y        = dat_Y,
@@ -104,7 +108,7 @@ time_lbl  <- c("Baseline", "2 min", "15 min", "30 min", "60 min")
 h_feat    <- 10  # number of top features to display
 
 # Generate heatmap plot and retrieve important features
-res_plot <- plot_CCVA(
+res_plot <- plot_FACD(
   fit           = Result,
   dat_X         = dat_X,
   dat_Y         = dat_Y,
@@ -123,3 +127,4 @@ print(res_plot$plot)
 # Important features
 cat("Top Metabolite features:\n", paste(res_plot$feature_X, collapse = ", "), "\n")
 cat("Top Lipid features:\n",      paste(res_plot$feature_Y, collapse = ", "), "\n")
+```

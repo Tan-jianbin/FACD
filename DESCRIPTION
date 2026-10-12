@@ -1,6 +1,6 @@
-Package: CCVA
-Title: Canonical Cross-Covariance Analysis for High-Dimensional Longitudinal Data
-Version: 0.1.0
+Package: FACD
+Title: Functional-Aggregated Cross-Covariance Decomposition
+Version: 0.2.0
 Authors@R: 
     c(
       person(given = "Jianbin", family = "Tan",
@@ -9,7 +9,7 @@ Authors@R:
              email = "pixu.shi@duke.edu", role = "aut")
     )
 Description: 
- CCVA encodes associations between high-dimensional longitudinal datasets by providing a 
+ FACD encodes associations between high-dimensional longitudinal datasets by providing a
  data-adaptive basis to capture longitudinal signals and incorporating variable selection 
  to facilitate the discovery of key associations.
 License: MIT + file LICENSE
