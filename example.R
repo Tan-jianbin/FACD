@@ -11,7 +11,8 @@ library(ggrepel)
 # The dat_X and dat_Y objects should have the following structure:
 #   n            : sample size
 #   p            : number of features (dimension)
-#   dat          : nested list of length p, each a list of length n with elements $time and $val
+#   dat          : nested list of length p, each a list of length n with 
+# elements $time and $val
 #   sub_label    : vector of subject identifiers
 #   feature_label: vector of feature names
 #   time_grid    : transformed unique time points on [0,1]
@@ -27,7 +28,7 @@ data(dat_Y)
 # Parameters
 grid_num   <- 201                        # number of grid points in [0,1]
 max_var    <- floor(c(min(dat_X$p/2, dat_X$n),
-                      min(dat_Y$p/2, dat_Y$n)))  # max selected features per dataset
+                      min(dat_Y$p/2, dat_Y$n)))  # max selected features 
 
 # Run FACD (first canonical component only)
 Result <- FACD(
@@ -47,11 +48,14 @@ Y_cca <- Result$Z_Y[[1]]
 n <- dat_X$n
 
 # Prepare data frame for plotting
-cor <- abs(crossprod(X_cca, Y_cca) / sqrt(crossprod(X_cca, X_cca) * crossprod(Y_cca, Y_cca)))
+cor <- abs(crossprod(X_cca, Y_cca) / 
+             sqrt(crossprod(X_cca, X_cca) * crossprod(Y_cca, Y_cca)))
 dat_plot <- data.frame(
   X = X_cca, Y = Y_cca,
-  cor = c(cor, rep(NA, n - 1)), var1 = rep("Metabolite", n), var2 = rep("Lipid", n),
-  text_x = c(min(X_cca), rep(NA, n - 1)), text_y = c(max(Y_cca) + 0.2, rep(NA, n - 1))
+  cor = c(cor, rep(NA, n - 1)), var1 = rep("Metabolite", n), 
+  var2 = rep("Lipid", n),
+  text_x = c(min(X_cca), rep(NA, n - 1)), 
+  text_y = c(max(Y_cca) + 0.2, rep(NA, n - 1))
 )
 
 ggplot(dat_plot) + 
@@ -99,5 +103,5 @@ res_plot <- plot_FACD(
 print(res_plot$plot)
 
 # Important features
-cat("Top Metabolite features:\n", paste(res_plot$feature_X, collapse = ", "), "\n")
-cat("Top Lipid features:\n",      paste(res_plot$feature_Y, collapse = ", "), "\n")
+cat("Top Meta features:\n", paste(res_plot$feature_X, collapse = ", "), "\n")
+cat("Top Lipid features:\n", paste(res_plot$feature_Y, collapse = ", "), "\n")
